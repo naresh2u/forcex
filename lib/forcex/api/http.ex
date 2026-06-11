@@ -26,25 +26,35 @@ defmodule Forcex.Api.Http do
   end
 
   @spec process_response(HTTPoison.Response.t) :: forcex_response
-  defp process_response(%HTTPoison.Response{body: body, headers: %{"Content-Encoding" => "gzip"} = headers} = resp) do
-    %{resp | body: :zlib.gunzip(body), headers: Map.drop(headers, ["Content-Encoding"])}
-    |> process_response
+  defp process_response(%HTTPoison.Response{body: body, headers: headers, status_code: status} = resp) when is_map(headers) do
+    cond do
+      Forcex.Util.find_header_value(headers, "content-encoding") == "gzip" ->
+        normalized_headers = Forcex.Util.drop_header_case_insensitive(headers, "content-encoding")
+        %{resp | body: :zlib.gunzip(body), headers: normalized_headers}
+        |> process_response
+
+      Forcex.Util.find_header_value(headers, "content-encoding") == "deflate" ->
+        zstream = :zlib.open
+        :ok = :zlib.inflateInit(zstream, -15)
+        uncompressed_data = zstream |> :zlib.inflate(body) |> Enum.join
+        :zlib.inflateEnd(zstream)
+        :zlib.close(zstream)
+        normalized_headers = Forcex.Util.drop_header_case_insensitive(headers, "content-encoding")
+        %{resp | body: uncompressed_data, headers: normalized_headers}
+        |> process_response
+
+      String.starts_with?(Forcex.Util.find_header_value(headers, "content-type") || "", "application/json") ->
+        normalized_headers = Forcex.Util.drop_header_case_insensitive(headers, "content-type")
+        %{resp | body: Poison.decode!(body, keys: :atoms), headers: normalized_headers}
+        |> process_response
+
+      status >= 200 and status < 300 ->
+        body
+
+      true ->
+        {status, body}
+    end
   end
-  defp process_response(%HTTPoison.Response{body: body, headers: %{"Content-Encoding" => "deflate"} = headers} = resp) do
-    zstream = :zlib.open
-    :ok = :zlib.inflateInit(zstream, -15)
-    uncompressed_data = zstream |> :zlib.inflate(body) |> Enum.join
-    :zlib.inflateEnd(zstream)
-    :zlib.close(zstream)
-    %{resp | body: uncompressed_data, headers: Map.drop(headers, ["Content-Encoding"])}
-    |> process_response
-  end
-  defp process_response(%HTTPoison.Response{body: body, headers: %{"Content-Type" => "application/json" <> _} = headers} = resp) do
-    %{resp | body: Poison.decode!(body, keys: :atoms), headers: Map.drop(headers, ["Content-Type"])}
-    |> process_response
-  end
-  defp process_response(%HTTPoison.Response{body: body, status_code: 200}), do: body
-  defp process_response(%HTTPoison.Response{body: body, status_code: status}), do: {status, body}
 
   def process_request_headers(headers), do: headers ++ @user_agent ++ @accept ++ @accept_encoding
 
