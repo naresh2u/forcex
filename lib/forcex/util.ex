@@ -79,10 +79,6 @@ defmodule Forcex.Util do
     count / (max_num - min_num)
   end
 
-  @doc """
-  Find a header value case-insensitively from a headers map.
-  Returns the value if found, nil otherwise.
-  """
   def find_header_value(headers, key) when is_map(headers) and is_binary(key) do
     key_lower = String.downcase(key)
     Enum.find_value(headers, fn {k, v} ->
@@ -90,10 +86,6 @@ defmodule Forcex.Util do
     end)
   end
 
-  @doc """
-  Drop a header case-insensitively from a headers map.
-  Returns a new map without the matching header.
-  """
   def drop_header_case_insensitive(headers, key) when is_map(headers) and is_binary(key) do
     key_lower = String.downcase(key)
     Enum.reject(headers, fn {k, _v} -> String.downcase(k) == key_lower end)
