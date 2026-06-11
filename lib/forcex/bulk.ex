@@ -16,16 +16,29 @@ defmodule Forcex.Bulk do
 
   def process_headers(headers), do: Map.new(headers)
 
-  def process_response(%HTTPoison.Response{body: body, headers: %{"Content-Encoding" => "gzip"} = headers } = resp) do
-    %{resp | body: :zlib.gunzip(body), headers: Map.drop(headers, ["Content-Encoding"])}
-    |> process_response
+  def process_response(%HTTPoison.Response{body: body, headers: headers, status_code: status} = resp) when is_map(headers) do
+    cond do
+      # Handle content-encoding: gzip (case-insensitive)
+      Forcex.Util.find_header_value(headers, "content-encoding") == "gzip" ->
+        normalized_headers = Forcex.Util.drop_header_case_insensitive(headers, "content-encoding")
+        %{resp | body: :zlib.gunzip(body), headers: normalized_headers}
+        |> process_response
+
+      # Handle content-type: application/json (case-insensitive)
+      String.starts_with?(Forcex.Util.find_header_value(headers, "content-type") || "", "application/json") ->
+        normalized_headers = Forcex.Util.drop_header_case_insensitive(headers, "content-type")
+        %{resp | body: Poison.decode!(body, keys: :atoms), headers: normalized_headers}
+        |> process_response
+
+      # Success status code
+      status >= 200 and status < 300 ->
+        body
+
+      # Default: error status code
+      true ->
+        {status, body}
+    end
   end
-  def process_response(%HTTPoison.Response{body: body, headers: %{"Content-Type" => "application/json" <> _} = headers} = resp) do
-    %{resp | body: Poison.decode!(body, keys: :atoms), headers: Map.drop(headers, ["Content-Type"])}
-    |> process_response
-  end
-  def process_response(%HTTPoison.Response{body: body, status_code: status}) when status < 300 and status >= 200, do: body
-  def process_response(%HTTPoison.Response{body: body, status_code: status}), do: {status, body}
 
   defp extra_options() do
     Application.get_env(:forcex, :request_options, [])
