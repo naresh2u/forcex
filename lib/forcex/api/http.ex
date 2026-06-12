@@ -48,7 +48,7 @@ defmodule Forcex.Api.Http do
         %{resp | body: Poison.decode!(body, keys: :atoms), headers: normalized_headers}
         |> process_response
 
-      status >= 200 and status < 300 ->
+      status == 200 ->
         body
 
       true ->
