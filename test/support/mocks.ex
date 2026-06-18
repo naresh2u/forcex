@@ -1,1 +1,1 @@
-Mox.defmock(Forcex.Api.MockHttp, for: Forcex.Api)
+# Mock definitions moved to test/test_helper.exs

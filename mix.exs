@@ -47,7 +47,9 @@ defmodule Forcex.Mixfile do
   #
   # Type `mix help compile.app` for more information
   def application do
-    [applications: [:logger, :httpoison, :erlsom, :exjsx, :ssl, :html_entities]]
+    applications = [:logger, :httpoison, :erlsom, :exjsx, :ssl, :html_entities, :poison]
+    applications = if Mix.env == :test, do: [:mox | applications], else: applications
+    [applications: applications]
   end
 
   # Dependencies can be Hex packages:
@@ -70,7 +72,7 @@ defmodule Forcex.Mixfile do
       {:ex_doc, "~> 0.11", only: :dev},
       {:earmark, "~> 1.1", only: :dev, override: true},
       {:dialyxir, "~> 1.0.0-rc.3", only: [:dev, :test], runtime: false},
-      {:mox, "~> 0.3", only: :test},
+      {:mox, "== 0.4.0"},
       {:mix_test_watch, "~> 0.5", only: [:dev, :test], runtime: false},
       {:html_entities, "~> 0.4"}
     ]

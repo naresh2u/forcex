@@ -11,7 +11,6 @@ defmodule Forcex.Api.Http do
   @accept [{"Accept", "application/json"}]
   @accept_encoding [{"Accept-Encoding", "gzip,deflate"}]
 
-  @type method :: :get | :put | :post | :patch | :delete
   @type forcex_response :: map | {number, any} | String.t
 
   def raw_request(method, url, body, headers, options) do
@@ -26,7 +25,7 @@ defmodule Forcex.Api.Http do
   end
 
   @spec process_response(HTTPoison.Response.t) :: forcex_response
-  defp process_response(%HTTPoison.Response{body: body, headers: headers, status_code: status} = resp) when is_map(headers) do
+  def process_response(%HTTPoison.Response{body: body, headers: headers, status_code: status} = resp) when is_map(headers) do
     cond do
       Forcex.Util.find_header_value(headers, "content-encoding") == "gzip" ->
         normalized_headers = Forcex.Util.drop_header_case_insensitive(headers, "content-encoding")
